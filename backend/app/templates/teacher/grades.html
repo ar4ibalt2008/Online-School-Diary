@@ -83,35 +83,58 @@
     let grades = [];
     
     async function loadFormData() {
-        const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token');
 
-        // Load students
-        const usersRes = await fetch('/api/admin/users', {
+    try {
+        // Load students через эндпоинт учителя
+        const usersRes = await fetch('/api/teacher/students', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        const users = await usersRes.json();
-        students = users.filter(u => u.role === 'student');
+
+        if (!usersRes.ok) {
+            throw new Error('Failed to load students');
+        }
+
+        students = await usersRes.json();
 
         const studentSelect = document.getElementById('studentId');
-        studentSelect.innerHTML = students.map(s =>
-            `<option value="${s.id}">${s.full_name}</option>`
-        ).join('');
+        if (students && students.length > 0) {
+            studentSelect.innerHTML = students.map(s =>
+                `<option value="${s.id}">${s.full_name}</option>`
+            ).join('');
+        } else {
+            studentSelect.innerHTML = '<option value="">Нет учеников</option>';
+        }
 
         // Load subjects
         const subjectsRes = await fetch('/api/teacher/subjects', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+
+        if (!subjectsRes.ok) {
+            throw new Error('Failed to load subjects');
+        }
+
         subjects = await subjectsRes.json();
 
         const subjectSelect = document.getElementById('subjectId');
-        subjectSelect.innerHTML = subjects.map(s =>
-            `<option value="${s.id}">${s.name}</option>`
-        ).join('');
+        if (subjects && subjects.length > 0) {
+            subjectSelect.innerHTML = subjects.map(s =>
+                `<option value="${s.id}">${s.name}</option>`
+            ).join('');
+        } else {
+            subjectSelect.innerHTML = '<option value="">Нет предметов</option>';
+        }
 
         const subjectFilter = document.getElementById('subjectFilter');
         subjectFilter.innerHTML = '<option value="">Все предметы</option>' +
             subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+    } catch (error) {
+        console.error('Error loading form data:', error);
+        alert('Ошибка загрузки данных: ' + error.message);
     }
+}
     
     async function loadGrades() {
         const token = localStorage.getItem('token');
