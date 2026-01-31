@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Мои Оценки{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="/student/dashboard">Главная</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/student/schedule">Расписание</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link active" href="/student/grades">Оценки</a>
+</li>
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Мои Оценки</h1>
+
+<div class="mb-3">
+    <label class="form-label">Фильтр по предмету:</label>
+    <select class="form-control" id="subjectFilter" onchange="loadGrades()">
+        <option value="">Все предметы</option>
+    </select>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Предмет</th>
+                <th>Оценка</th>
+                <th>Комментарий</th>
+                <th>Учитель</th>
+            </tr>
+        </thead>
+        <tbody id="gradesTable"></tbody>
+    </table>
+</div>
+
+<div class="mt-4">
+    <h3>Средний балл по предметам</h3>
+    <div class="row">
+        <div class="col-md-8">
+            <canvas id="gradesChart"></canvas>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Общая статистика</h5>
+                    <div id="statistics"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let subjects = [];
+    let grades = [];
+    let teachers = [];
+    
+    async function loadData() {
+        const token = localStorage.getItem('token');
+        
+        // Load subjects
+        const subjectsRes = await fetch('/api/student/subjects', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        subjects = await subjectsRes.json();
+        
+        const subjectFilter = document.getElementById('subjectFilter');
+        subjectFilter.innerHTML = '<option value="">Все предметы</option>' + 
+            subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        
+        // Load teachers
+        const usersRes = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const users = await usersRes.json();
+        teachers = users.filter(u => u.role === 'teacher');
+        
+        loadGrades();
+        loadChart();
+    }
+    
+    async function loadGrades() {
+        const token = localStorage.getItem('token');
+        const subjectFilter = document.getElementById('subjectFilter').value;
+        
+        let url = subjectFilter 
+            ? `/api/student/grades/subject/${subjectFilter}`
+            : '/api/student/grades';
+        
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        grades = await response.json();
+        
+        const tbody = document.getElementById('gradesTable');
+        tbody.innerHTML = grades.map(grade => `
+            <tr>
+                <td>${new Date(grade.date).toLocaleDateString('ru-RU')}</td>
+                <td>${getSubjectName(grade.subject_id)}</td>
+                <td><span class="badge bg-${getGradeBadge(grade.value)}">${grade.value}</span></td>
+                <td>${grade.comment || ''}</td>
+                <td>${getTeacherName(grade.teacher_id)}</td>
+            </tr>
+        `).join('');
+        
+        updateStatistics();
+    }
+    
+    async function loadChart() {
+        const token = localStorage.getItem('token');
+        
+        const avgRes = await fetch('/api/student/grades/average/subjects', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const avgData = await avgRes.json();
+        
+        const ctx = document.getElementById('gradesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: avgData.map(d => d.subject),
+                datasets: [{
+                    label: 'Средний балл',
+                    data: avgData.map(d => d.average),
+                    backgroundColor: 'rgba(13, 110, 253, 0.5)',
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 5
+                    }
+                }
+            }
+        });
+    }
+    
+    function updateStatistics() {
+        if (grades.length === 0) {
+            document.getElementById('statistics').innerHTML = '<p>Нет оценок</p>';
+            return;
+        }
+        
+        const total = grades.length;
+        const sum = grades.reduce((acc, g) => acc + g.value, 0);
+        const avg = (sum / total).toFixed(2);
+        
+        const excellent = grades.filter(g => g.value === 5).length;
+        const good = grades.filter(g => g.value === 4).length;
+        const satisfactory = grades.filter(g => g.value === 3).length;
+        const poor = grades.filter(g => g.value < 3).length;
+        
+        document.getElementById('statistics').innerHTML = `
+            <p><strong>Всего оценок:</strong> ${total}</p>
+            <p><strong>Средний балл:</strong> ${avg}</p>
+            <hr>
+            <p>Отлично (5): ${excellent}</p>
+            <p>Хорошо (4): ${good}</p>
+            <p>Удовл. (3): ${satisfactory}</p>
+            <p>Плохо (<3): ${poor}</p>
+        `;
+    }
+    
+    function getSubjectName(id) {
+        const subject = subjects.find(s => s.id === id);
+        return subject ? subject.name : id;
+    }
+    
+    function getTeacherName(id) {
+        const teacher = teachers.find(t => t.id === id);
+        return teacher ? teacher.full_name : id;
+    }
+    
+    function getGradeBadge(value) {
+        if (value >= 4) return 'success';
+        if (value >= 3) return 'warning';
+        return 'danger';
+    }
+    
+    loadData();
+</script>
+{% endblock %}

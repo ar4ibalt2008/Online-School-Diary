@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Расписание{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="/student/dashboard">Главная</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link active" href="/student/schedule">Расписание</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/student/grades">Оценки</a>
+</li>
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Расписание на неделю</h1>
+
+<div class="table-responsive">
+    <table class="table table-bordered">
+        <thead class="table-primary">
+            <tr>
+                <th>Время</th>
+                <th>Понедельник</th>
+                <th>Вторник</th>
+                <th>Среда</th>
+                <th>Четверг</th>
+                <th>Пятница</th>
+                <th>Суббота</th>
+            </tr>
+        </thead>
+        <tbody id="scheduleTable"></tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadSchedule() {
+        const token = localStorage.getItem('token');
+        
+        const scheduleRes = await fetch('/api/student/schedule', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const schedules = await scheduleRes.json();
+        
+        const subjectsRes = await fetch('/api/student/subjects', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const subjects = await subjectsRes.json();
+        
+        // Get all unique time slots
+        const timeSlots = [...new Set(schedules.map(s => s.time_slot))].sort();
+        
+        const tbody = document.getElementById('scheduleTable');
+        tbody.innerHTML = timeSlots.map(time => {
+            const row = `<tr>
+                <td class="fw-bold">${time}</td>
+                ${['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map(day => {
+                    const lesson = schedules.find(s => s.time_slot === time && s.day_of_week === day);
+                    if (lesson) {
+                        const subject = subjects.find(s => s.id === lesson.subject_id);
+                        return `<td class="table-light">${subject ? subject.name : ''}</td>`;
+                    }
+                    return '<td></td>';
+                }).join('')}
+            </tr>`;
+            return row;
+        }).join('');
+    }
+    
+    loadSchedule();
+</script>
+{% endblock %}

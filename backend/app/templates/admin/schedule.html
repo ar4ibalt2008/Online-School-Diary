@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Управление Расписанием{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="/admin/dashboard">Главная</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/admin/users">Пользователи</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link active" href="/admin/schedule">Расписание</a>
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Управление Расписанием</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
+        Добавить запись
+    </button>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>День недели</th>
+                <th>Время</th>
+                <th>Класс</th>
+                <th>Предмет</th>
+                <th>Учитель</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody id="scheduleTable"></tbody>
+    </table>
+</div>
+
+<!-- Add Schedule Modal -->
+<div class="modal fade" id="addScheduleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить занятие в расписание</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addScheduleForm">
+                    <div class="mb-3">
+                        <label class="form-label">День недели</label>
+                        <select class="form-control" id="dayOfWeek" required>
+                            <option value="monday">Понедельник</option>
+                            <option value="tuesday">Вторник</option>
+                            <option value="wednesday">Среда</option>
+                            <option value="thursday">Четверг</option>
+                            <option value="friday">Пятница</option>
+                            <option value="saturday">Суббота</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Время (например, 08:00-08:45)</label>
+                        <input type="text" class="form-control" id="timeSlot" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Класс</label>
+                        <select class="form-control" id="classId" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Предмет</label>
+                        <select class="form-control" id="subjectId" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Учитель</label>
+                        <select class="form-control" id="teacherId" required></select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let classes = [];
+    let subjects = [];
+    let teachers = [];
+    
+    async function loadSchedule() {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/admin/schedules', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const schedules = await response.json();
+        
+        const tbody = document.getElementById('scheduleTable');
+        tbody.innerHTML = schedules.map(schedule => `
+            <tr>
+                <td>${getDayText(schedule.day_of_week)}</td>
+                <td>${schedule.time_slot}</td>
+                <td>${getClassName(schedule.class_id)}</td>
+                <td>${getSubjectName(schedule.subject_id)}</td>
+                <td>${getTeacherName(schedule.teacher_id)}</td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${schedule.id})">Удалить</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    async function loadFormData() {
+        const token = localStorage.getItem('token');
+        
+        // Load classes
+        const classesRes = await fetch('/api/admin/classes', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        classes = await classesRes.json();
+        
+        const classSelect = document.getElementById('classId');
+        classSelect.innerHTML = classes.map(c => 
+            `<option value="${c.id}">${c.name}</option>`
+        ).join('');
+        
+        // Load subjects
+        const subjectsRes = await fetch('/api/admin/subjects', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        subjects = await subjectsRes.json();
+        
+        const subjectSelect = document.getElementById('subjectId');
+        subjectSelect.innerHTML = subjects.map(s => 
+            `<option value="${s.id}">${s.name}</option>`
+        ).join('');
+        
+        // Load teachers
+        const usersRes = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const users = await usersRes.json();
+        teachers = users.filter(u => u.role === 'teacher');
+        
+        const teacherSelect = document.getElementById('teacherId');
+        teacherSelect.innerHTML = teachers.map(t => 
+            `<option value="${t.id}">${t.full_name}</option>`
+        ).join('');
+    }
+    
+    function getDayText(day) {
+        const days = {
+            'monday': 'Понедельник',
+            'tuesday': 'Вторник',
+            'wednesday': 'Среда',
+            'thursday': 'Четверг',
+            'friday': 'Пятница',
+            'saturday': 'Суббота'
+        };
+        return days[day] || day;
+    }
+    
+    function getClassName(id) {
+        const cls = classes.find(c => c.id === id);
+        return cls ? cls.name : id;
+    }
+    
+    function getSubjectName(id) {
+        const subject = subjects.find(s => s.id === id);
+        return subject ? subject.name : id;
+    }
+    
+    function getTeacherName(id) {
+        const teacher = teachers.find(t => t.id === id);
+        return teacher ? teacher.full_name : id;
+    }
+    
+    document.getElementById('addScheduleForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('token');
+        
+        const data = {
+            day_of_week: document.getElementById('dayOfWeek').value,
+            time_slot: document.getElementById('timeSlot').value,
+            class_id: parseInt(document.getElementById('classId').value),
+            subject_id: parseInt(document.getElementById('subjectId').value),
+            teacher_id: parseInt(document.getElementById('teacherId').value)
+        };
+        
+        await fetch('/api/admin/schedules', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        bootstrap.Modal.getInstance(document.getElementById('addScheduleModal')).hide();
+        document.getElementById('addScheduleForm').reset();
+        loadSchedule();
+    });
+    
+    async function deleteSchedule(scheduleId) {
+        if (!confirm('Удалить занятие?')) return;
+        
+        const token = localStorage.getItem('token');
+        await fetch(`/api/admin/schedules/${scheduleId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        loadSchedule();
+    }
+    
+    loadFormData();
+    loadSchedule();
+</script>
+{% endblock %}

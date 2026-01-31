@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Панель Ученика{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link active" href="/student/dashboard">Главная</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/student/schedule">Расписание</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/student/grades">Оценки</a>
+</li>
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Панель Ученика</h1>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title">Средний балл</h5>
+                <h2 id="averageGrade">-</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Всего оценок</h5>
+                <h2 id="totalGrades">0</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h5 class="card-title">Предметы</h5>
+                <h2 id="totalSubjects">0</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <h3>Средний балл по предметам</h3>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Предмет</th>
+                        <th>Средний балл</th>
+                    </tr>
+                </thead>
+                <tbody id="subjectAverages"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <h3>Последние оценки</h3>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Предмет</th>
+                        <th>Оценка</th>
+                        <th>Комментарий</th>
+                    </tr>
+                </thead>
+                <tbody id="recentGrades"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadData() {
+        const token = localStorage.getItem('token');
+        
+        // Load average grade
+        const avgRes = await fetch('/api/student/grades/average', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const avgData = await avgRes.json();
+        document.getElementById('averageGrade').textContent = avgData.average.toFixed(2);
+        
+        // Load all grades
+        const gradesRes = await fetch('/api/student/grades', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const grades = await gradesRes.json();
+        document.getElementById('totalGrades').textContent = grades.length;
+        
+        // Load subjects
+        const subjectsRes = await fetch('/api/student/subjects', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const subjects = await subjectsRes.json();
+        document.getElementById('totalSubjects').textContent = subjects.length;
+        
+        // Load average by subjects
+        const avgBySubjectsRes = await fetch('/api/student/grades/average/subjects', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const avgBySubjects = await avgBySubjectsRes.json();
+        
+        const avgTable = document.getElementById('subjectAverages');
+        avgTable.innerHTML = avgBySubjects.map(item => `
+            <tr>
+                <td>${item.subject}</td>
+                <td><span class="badge bg-${getGradeBadge(item.average)}">${item.average.toFixed(2)}</span></td>
+            </tr>
+        `).join('');
+        
+        // Load recent grades (last 10)
+        const recentGrades = grades.slice(-10).reverse();
+        const recentTable = document.getElementById('recentGrades');
+        recentTable.innerHTML = recentGrades.map(grade => `
+            <tr>
+                <td>${new Date(grade.date).toLocaleDateString('ru-RU')}</td>
+                <td>${getSubjectName(subjects, grade.subject_id)}</td>
+                <td><span class="badge bg-${getGradeBadge(grade.value)}">${grade.value}</span></td>
+                <td>${grade.comment || ''}</td>
+            </tr>
+        `).join('');
+    }
+    
+    function getSubjectName(subjects, id) {
+        const subject = subjects.find(s => s.id === id);
+        return subject ? subject.name : id;
+    }
+    
+    function getGradeBadge(value) {
+        if (value >= 4) return 'success';
+        if (value >= 3) return 'warning';
+        return 'danger';
+    }
+    
+    loadData();
+</script>
+{% endblock %}

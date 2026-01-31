@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Управление Пользователями{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="/admin/dashboard">Главная</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link active" href="/admin/users">Пользователи</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/admin/schedule">Расписание</a>
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Управление Пользователями</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+        Добавить пользователя
+    </button>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Имя пользователя</th>
+                <th>Email</th>
+                <th>Полное имя</th>
+                <th>Роль</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody id="usersTable"></tbody>
+    </table>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить пользователя</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserForm">
+                    <div class="mb-3">
+                        <label class="form-label">Имя пользователя</label>
+                        <input type="text" class="form-control" id="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Полное имя</label>
+                        <input type="text" class="form-control" id="fullName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Роль</label>
+                        <select class="form-control" id="role" required>
+                            <option value="student">Ученик</option>
+                            <option value="teacher">Учитель</option>
+                            <option value="admin">Администратор</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Пароль</label>
+                        <input type="password" class="form-control" id="password" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadUsers() {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const users = await response.json();
+        
+        const tbody = document.getElementById('usersTable');
+        tbody.innerHTML = users.map(user => `
+            <tr>
+                <td>${user.id}</td>
+                <td>${user.username}</td>
+                <td>${user.email}</td>
+                <td>${user.full_name}</td>
+                <td><span class="badge bg-${getRoleBadge(user.role)}">${getRoleText(user.role)}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">Удалить</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    function getRoleBadge(role) {
+        const badges = {
+            'admin': 'danger',
+            'teacher': 'primary',
+            'student': 'success'
+        };
+        return badges[role] || 'secondary';
+    }
+    
+    function getRoleText(role) {
+        const texts = {
+            'admin': 'Администратор',
+            'teacher': 'Учитель',
+            'student': 'Ученик'
+        };
+        return texts[role] || role;
+    }
+    
+    document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('token');
+        
+        const data = {
+            username: document.getElementById('username').value,
+            email: document.getElementById('email').value,
+            full_name: document.getElementById('fullName').value,
+            role: document.getElementById('role').value,
+            password: document.getElementById('password').value
+        };
+        
+        try {
+            const response = await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+                document.getElementById('addUserForm').reset();
+                loadUsers();
+            } else {
+                const error = await response.json();
+                alert(error.detail);
+            }
+        } catch (error) {
+            alert('Ошибка создания пользователя');
+        }
+    });
+    
+    async function deleteUser(userId) {
+        if (!confirm('Удалить пользователя?')) return;
+        
+        const token = localStorage.getItem('token');
+        await fetch(`/api/admin/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        loadUsers();
+    }
+    
+    loadUsers();
+</script>
+{% endblock %}

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Панель Администратора{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="/admin/dashboard">Главная</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/admin/users">Пользователи</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/admin/schedule">Расписание</a>
+</li>
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Панель Администратора</h1>
+
+<div class="row">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title">Пользователи</h5>
+                <h2 id="totalUsers">0</h2>
+                <a href="/admin/users" class="btn btn-light btn-sm mt-2">Управление</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Предметы</h5>
+                <h2 id="totalSubjects">0</h2>
+                <button class="btn btn-light btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#addSubjectModal">Добавить</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h5 class="card-title">Классы</h5>
+                <h2 id="totalClasses">0</h2>
+                <button class="btn btn-light btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#addClassModal">Добавить</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <h5 class="card-title">Расписание</h5>
+                <h2 id="totalSchedules">0</h2>
+                <a href="/admin/schedule" class="btn btn-light btn-sm mt-2">Управление</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <h3>Предметы</h3>
+        <div class="list-group" id="subjectsList"></div>
+    </div>
+    
+    <div class="col-md-6">
+        <h3>Классы</h3>
+        <div class="list-group" id="classesList"></div>
+    </div>
+</div>
+
+<!-- Add Subject Modal -->
+<div class="modal fade" id="addSubjectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить предмет</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addSubjectForm">
+                    <div class="mb-3">
+                        <label class="form-label">Название</label>
+                        <input type="text" class="form-control" id="subjectName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Описание</label>
+                        <textarea class="form-control" id="subjectDescription"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Class Modal -->
+<div class="modal fade" id="addClassModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить класс</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addClassForm">
+                    <div class="mb-3">
+                        <label class="form-label">Название (например, 10A)</label>
+                        <input type="text" class="form-control" id="className" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Год</label>
+                        <input type="number" class="form-control" id="classYear" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadDashboardData() {
+        const token = localStorage.getItem('token');
+        
+        // Load users count
+        const usersRes = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const users = await usersRes.json();
+        document.getElementById('totalUsers').textContent = users.length;
+        
+        // Load subjects
+        const subjectsRes = await fetch('/api/admin/subjects', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const subjects = await subjectsRes.json();
+        document.getElementById('totalSubjects').textContent = subjects.length;
+        
+        const subjectsList = document.getElementById('subjectsList');
+        subjectsList.innerHTML = subjects.map(s => 
+            `<div class="list-group-item">${s.name}</div>`
+        ).join('');
+        
+        // Load classes
+        const classesRes = await fetch('/api/admin/classes', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const classes = await classesRes.json();
+        document.getElementById('totalClasses').textContent = classes.length;
+        
+        const classesList = document.getElementById('classesList');
+        classesList.innerHTML = classes.map(c => 
+            `<div class="list-group-item">${c.name} (${c.year})</div>`
+        ).join('');
+        
+        // Load schedules count
+        const schedulesRes = await fetch('/api/admin/schedules', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const schedules = await schedulesRes.json();
+        document.getElementById('totalSchedules').textContent = schedules.length;
+    }
+    
+    // Add subject
+    document.getElementById('addSubjectForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('token');
+        
+        const data = {
+            name: document.getElementById('subjectName').value,
+            description: document.getElementById('subjectDescription').value
+        };
+        
+        await fetch('/api/admin/subjects', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        bootstrap.Modal.getInstance(document.getElementById('addSubjectModal')).hide();
+        loadDashboardData();
+    });
+    
+    // Add class
+    document.getElementById('addClassForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('token');
+        
+        const data = {
+            name: document.getElementById('className').value,
+            year: parseInt(document.getElementById('classYear').value)
+        };
+        
+        await fetch('/api/admin/classes', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        bootstrap.Modal.getInstance(document.getElementById('addClassModal')).hide();
+        loadDashboardData();
+    });
+    
+    loadDashboardData();
+</script>
+{% endblock %}

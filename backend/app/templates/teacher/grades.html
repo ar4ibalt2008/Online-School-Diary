@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Управление Оценками{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="/teacher/dashboard">Главная</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link active" href="/teacher/grades">Оценки</a>
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Управление Оценками</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGradeModal">
+        Выставить оценку
+    </button>
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Фильтр по предмету:</label>
+    <select class="form-control" id="subjectFilter" onchange="loadGrades()">
+        <option value="">Все предметы</option>
+    </select>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Ученик</th>
+                <th>Предмет</th>
+                <th>Оценка</th>
+                <th>Комментарий</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody id="gradesTable"></tbody>
+    </table>
+</div>
+
+<!-- Add Grade Modal -->
+<div class="modal fade" id="addGradeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Выставить оценку</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addGradeForm">
+                    <div class="mb-3">
+                        <label class="form-label">Ученик</label>
+                        <select class="form-control" id="studentId" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Предмет</label>
+                        <select class="form-control" id="subjectId" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Оценка (1-5)</label>
+                        <input type="number" class="form-control" id="gradeValue" min="1" max="5" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Комментарий</label>
+                        <textarea class="form-control" id="gradeComment"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Выставить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let students = [];
+    let subjects = [];
+    let grades = [];
+    
+    async function loadFormData() {
+        const token = localStorage.getItem('token');
+
+        // Load students
+        const usersRes = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const users = await usersRes.json();
+        students = users.filter(u => u.role === 'student');
+
+        const studentSelect = document.getElementById('studentId');
+        studentSelect.innerHTML = students.map(s =>
+            `<option value="${s.id}">${s.full_name}</option>`
+        ).join('');
+
+        // Load subjects
+        const subjectsRes = await fetch('/api/teacher/subjects', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        subjects = await subjectsRes.json();
+
+        const subjectSelect = document.getElementById('subjectId');
+        subjectSelect.innerHTML = subjects.map(s =>
+            `<option value="${s.id}">${s.name}</option>`
+        ).join('');
+
+        const subjectFilter = document.getElementById('subjectFilter');
+        subjectFilter.innerHTML = '<option value="">Все предметы</option>' +
+            subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
+    
+    async function loadGrades() {
+        const token = localStorage.getItem('token');
+        const subjectFilter = document.getElementById('subjectFilter').value;
+        
+        let url = '/api/teacher/grades/subject/';
+        if (subjectFilter) {
+            const response = await fetch(url + subjectFilter, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            grades = await response.json();
+        } else {
+            // Load all grades for all subjects
+            grades = [];
+            for (const subject of subjects) {
+                const response = await fetch(url + subject.id, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const subjectGrades = await response.json();
+                grades = grades.concat(subjectGrades);
+            }
+        }
+        
+        const tbody = document.getElementById('gradesTable');
+        tbody.innerHTML = grades.map(grade => `
+            <tr>
+                <td>${new Date(grade.date).toLocaleDateString('ru-RU')}</td>
+                <td>${getStudentName(grade.student_id)}</td>
+                <td>${getSubjectName(grade.subject_id)}</td>
+                <td><span class="badge bg-${getGradeBadge(grade.value)}">${grade.value}</span></td>
+                <td>${grade.comment || ''}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="editGrade(${grade.id})">Редактировать</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    function getStudentName(id) {
+        const student = students.find(s => s.id === id);
+        return student ? student.full_name : id;
+    }
+    
+    function getSubjectName(id) {
+        const subject = subjects.find(s => s.id === id);
+        return subject ? subject.name : id;
+    }
+    
+    function getGradeBadge(value) {
+        if (value >= 4) return 'success';
+        if (value >= 3) return 'warning';
+        return 'danger';
+    }
+    
+    document.getElementById('addGradeForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('token');
+        
+        const data = {
+            student_id: parseInt(document.getElementById('studentId').value),
+            subject_id: parseInt(document.getElementById('subjectId').value),
+            value: parseInt(document.getElementById('gradeValue').value),
+            comment: document.getElementById('gradeComment').value
+        };
+        
+        await fetch('/api/teacher/grades', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        bootstrap.Modal.getInstance(document.getElementById('addGradeModal')).hide();
+        document.getElementById('addGradeForm').reset();
+        loadGrades();
+    });
+    
+    async function editGrade(gradeId) {
+        const newValue = prompt('Введите новую оценку (1-5):');
+        if (!newValue) return;
+        
+        const token = localStorage.getItem('token');
+        await fetch(`/api/teacher/grades/${gradeId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ value: parseInt(newValue) })
+        });
+        
+        loadGrades();
+    }
+    
+    loadFormData().then(() => loadGrades());
+</script>
+{% endblock %}

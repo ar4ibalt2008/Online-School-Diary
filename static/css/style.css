@@ -1,0 +1,137 @@
+/* Custom styles for Online School Diary */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.table {
+    background-color: white;
+    border-radius: 8px;
+}
+
+.table thead {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.table-bordered {
+    border: 1px solid #dee2e6;
+}
+
+.btn {
+    border-radius: 5px;
+    font-weight: 500;
+}
+
+.modal-content {
+    border-radius: 10px;
+}
+
+.list-group-item {
+    border-left: 4px solid #0d6efd;
+    margin-bottom: 5px;
+    border-radius: 5px;
+}
+
+/* Login page specific styles */
+.min-vh-100 {
+    min-height: 100vh;
+}
+
+.shadow {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Badge colors */
+.badge {
+    padding: 0.5em 0.75em;
+    font-size: 0.9em;
+}
+
+/* Table responsive improvements */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+}
+
+/* Dashboard cards */
+.card h2 {
+    font-size: 2.5rem;
+    margin: 0;
+}
+
+.card h5 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Schedule table */
+.table-light {
+    background-color: #e9ecef;
+}
+
+/* Chart container */
+canvas {
+    max-height: 400px;
+}
+
+/* Loading animation */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Success/error messages */
+.alert {
+    border-radius: 8px;
+}
+/* Fix for dropdown in modal */
+.modal {
+    overflow: visible !important;
+}
+
+.modal-dialog {
+    overflow: visible !important;
+}
+
+.modal-content {
+    overflow: visible !important;
+}
+
+.modal-body {
+    overflow: visible !important;
+}
+
+/* Ensure select dropdowns appear above modal */
+select {
+    position: relative;
+    z-index: 9999 !important;
+}
+
+.form-control {
+    position: relative;
+    z-index: 1050 !important;
+}
+
+/* Bootstrap select fix */
+.modal select.form-control {
+    position: relative !important;
+}

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Панель Учителя{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link active" href="/teacher/dashboard">Главная</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/teacher/grades">Оценки</a>
+</li>
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Панель Учителя</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <h3>Мои предметы</h3>
+        <div class="list-group" id="subjectsList"></div>
+    </div>
+    
+    <div class="col-md-6">
+        <h3>Мои классы</h3>
+        <div class="list-group" id="classesList"></div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <h3>Моё расписание</h3>
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>День</th>
+                    <th>Время</th>
+                    <th>Класс</th>
+                    <th>Предмет</th>
+                </tr>
+            </thead>
+            <tbody id="scheduleTable"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadData() {
+        const token = localStorage.getItem('token');
+        
+        // Load subjects
+        const subjectsRes = await fetch('/api/teacher/subjects', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const subjects = await subjectsRes.json();
+        
+        const subjectsList = document.getElementById('subjectsList');
+        subjectsList.innerHTML = subjects.map(s => 
+            `<div class="list-group-item">${s.name}</div>`
+        ).join('');
+        
+        // Load classes
+        const classesRes = await fetch('/api/teacher/classes', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const classes = await classesRes.json();
+        
+        const classesList = document.getElementById('classesList');
+        classesList.innerHTML = classes.map(c => 
+            `<div class="list-group-item">${c.name} (${c.year})</div>`
+        ).join('');
+        
+        // Load schedule
+        const scheduleRes = await fetch('/api/teacher/schedules', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const schedules = await scheduleRes.json();
+        
+        const scheduleTable = document.getElementById('scheduleTable');
+        scheduleTable.innerHTML = schedules.map(s => `
+            <tr>
+                <td>${getDayText(s.day_of_week)}</td>
+                <td>${s.time_slot}</td>
+                <td>${classes.find(c => c.id === s.class_id)?.name || ''}</td>
+                <td>${subjects.find(sub => sub.id === s.subject_id)?.name || ''}</td>
+            </tr>
+        `).join('');
+    }
+    
+    function getDayText(day) {
+        const days = {
+            'monday': 'Понедельник',
+            'tuesday': 'Вторник',
+            'wednesday': 'Среда',
+            'thursday': 'Четверг',
+            'friday': 'Пятница',
+            'saturday': 'Суббота'
+        };
+        return days[day] || day;
+    }
+    
+    loadData();
+</script>
+{% endblock %}
